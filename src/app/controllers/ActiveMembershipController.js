@@ -1,7 +1,7 @@
 import * as Yup from 'yup';
 import Membership from '../models/Membership';
 
-class MembershipController {
+class ActiveMembershipController {
   async index(req, res) {
     const memberships = await Membership.findAll();
 
@@ -76,4 +76,4 @@ class MembershipController {
   }
 }
 
-export default new MembershipController();
+export default new ActiveMembershipController();
