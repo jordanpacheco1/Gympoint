@@ -2,6 +2,10 @@ import * as Yup from 'yup';
 import { addMonths, parseISO } from 'date-fns';
 import ActiveMembership from '../models/ActiveMembership';
 import Membership from '../models/Membership';
+import Student from '../models/Student';
+
+import WelcomeMail from '../jobs/WelcomeMail';
+import Queue from '../../lib/Queue';
 
 class ActiveMembershipController {
   async index(req, res) {
@@ -45,7 +49,15 @@ class ActiveMembershipController {
       },
     });
 
-    const { duration, price } = selectedMembership.dataValues;
+    const enrolledStudent = await Student.findOne({
+      where: {
+        id: student_id,
+      },
+    });
+
+    const { name, email } = enrolledStudent.dataValues;
+
+    const { title, duration, price } = selectedMembership.dataValues;
 
     const finalDate = addMonths(parseISO(start_date), duration);
 
@@ -57,6 +69,16 @@ class ActiveMembershipController {
       start_date,
       end_date: finalDate,
       price: finalPrice,
+    });
+
+    await Queue.add(WelcomeMail.key, {
+      name,
+      email,
+      title,
+      duration,
+      finalDate,
+      finalPrice,
+      price,
     });
 
     return res.json(enrollment);
