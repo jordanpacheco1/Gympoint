@@ -1,42 +1,65 @@
 import * as Yup from 'yup';
+import { addMonths, parseISO } from 'date-fns';
+import ActiveMembership from '../models/ActiveMembership';
 import Membership from '../models/Membership';
 
 class ActiveMembershipController {
   async index(req, res) {
-    const memberships = await Membership.findAll();
+    const activememberships = await ActiveMembership.findAll();
 
-    return res.json(memberships);
+    return res.json(activememberships);
   }
 
   async store(req, res) {
     const schema = Yup.object().shape({
-      title: Yup.string().required(),
-      duration: Yup.number()
-        .integer()
-        .required(),
-      price: Yup.number().required(),
+      student_id: Yup.number().required(),
+      plan_id: Yup.number().required(),
+      start_date: Yup.date().required(),
     });
 
     if (!(await schema.isValid(req.body))) {
       return res.status(400).json({ error: 'Validation failed' });
     }
 
-    const membershipExists = await Membership.findOne({
-      where: { title: req.body.title },
+    const { student_id, plan_id, start_date } = req.body;
+
+    /**
+     * Checks if Student is already enrolled
+     */
+
+    const activeMembershipExists = await ActiveMembership.findOne({
+      where: { student_id },
     });
 
-    if (membershipExists) {
-      return res.status(400).json({ error: 'Membership Plan already exists' });
+    if (activeMembershipExists) {
+      return res.status(400).json({ error: 'Student already enrolled' });
     }
 
-    const { id, title, duration, price } = await Membership.create(req.body);
+    /**
+     * Calculates the end_date and price according to start_date
+     */
 
-    return res.json({
-      id,
-      title,
-      duration,
-      price,
+    const selectedMembership = await Membership.findOne({
+      where: {
+        id: plan_id,
+      },
     });
+
+    const { duration, price } = selectedMembership.dataValues;
+
+    const finalDate = addMonths(parseISO(start_date), duration);
+
+    const finalPrice = price * duration;
+
+    const enrollment = await ActiveMembership.create({
+      student_id,
+      plan_id,
+      start_date,
+      end_date: finalDate,
+      price: finalPrice,
+    });
+
+    return res.json(enrollment);
   }
 
   async update(req, res) {
